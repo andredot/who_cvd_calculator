@@ -1,0 +1,6 @@
+name	user	system	elapsed
+calculate_who_risk	0.002	0.000	0.002	
+calculate_who_risk_nonlab	0.001	0.000	0.001	
+country_to_region	0.000	0.000	0.001	
+get_country_codes	0.001	0.000	0.001	
+get_regions	0.000	0.000	0.001	

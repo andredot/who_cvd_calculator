@@ -1,4 +1,4 @@
-Package: who_cvd_risk_calculator
+Package: WHORiskCalculator
 Title: WHO Cardiovascular Disease Risk Calculator
 Version: 0.0.0.9000
 Authors@R: 

@@ -2,8 +2,8 @@
 % Please edit documentation in R/calculate_who_risk.R
 \docType{package}
 \name{WHOrisk-package}
-\alias{who_cvd_risk_calculator}
-\alias{who_cvd_risk_calculator-package}
+\alias{WHORiskCalculator}
+\alias{WHORiskCalculator-package}
 \alias{WHOrisk-package}
 \alias{WHOrisk}
 \title{WHO CVD Risk Calculator}
