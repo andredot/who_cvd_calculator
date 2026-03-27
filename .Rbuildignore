@@ -1,2 +1,8 @@
-^project\.Rproj$
+^.*\.Rproj$
 ^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^\.github$
+^renv$
+^renv\.lock$
+^pat\.txt$

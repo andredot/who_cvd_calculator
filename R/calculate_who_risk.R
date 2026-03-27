@@ -4,10 +4,6 @@
 #' risk prediction models. This package implements both laboratory-based and
 #' non-laboratory-based models, recalibrated for 21 global regions.
 #'
-#' @docType package
-#' @name WHOrisk-package
-#' @aliases WHOrisk
-#'
 #' @references
 #' Kaptoge S, Pennells L, De Bacquer D, et al. World Health Organization
 #' cardiovascular disease risk charts: revised models to estimate risk in 21
@@ -110,26 +106,26 @@
 #' @export
 calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
                                region = NULL, country = NULL) {
-  
+
 
   # Input validation and recycling
   n <- max(length(age), length(sex), length(sbp), length(cholesterol),
            length(smoking), length(diabetes),
            if (!is.null(region)) length(region) else 0,
            if (!is.null(country)) length(country) else 0)
-  
+
   age <- rep_len(age, n)
   sex <- rep_len(tolower(sex), n)
   sbp <- rep_len(sbp, n)
   cholesterol <- rep_len(cholesterol, n)
   smoking <- rep_len(as.logical(smoking), n)
   diabetes <- rep_len(as.logical(diabetes), n)
-  
+
   # Handle region/country
   if (is.null(region) && is.null(country)) {
     stop("Either 'region' or 'country' must be provided.")
   }
-  
+
   if (!is.null(country)) {
     country <- rep_len(toupper(country), n)
     if (is.null(region)) {
@@ -137,15 +133,15 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
     }
   }
   region <- rep_len(region, n)
-  
+
   # Validate inputs
   .validate_inputs(age, sex, sbp, cholesterol, smoking, diabetes, region)
-  
+
   # Center variables
   age_c <- age - 60
   sbp_c <- sbp - 120
   chol_c <- cholesterol - 6
-  
+
   # Calculate risk for each observation
   risk <- mapply(
     .calculate_lab_risk_single,
@@ -159,7 +155,7 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
     age_raw = age,
     SIMPLIFY = TRUE
   )
-  
+
   return(risk)
 }
 
@@ -232,23 +228,23 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #' @export
 calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
                                       region = NULL, country = NULL) {
-  
+
   # Input validation and recycling
   n <- max(length(age), length(sex), length(sbp), length(bmi), length(smoking),
            if (!is.null(region)) length(region) else 0,
            if (!is.null(country)) length(country) else 0)
-  
+
   age <- rep_len(age, n)
   sex <- rep_len(tolower(sex), n)
   sbp <- rep_len(sbp, n)
   bmi <- rep_len(bmi, n)
   smoking <- rep_len(as.logical(smoking), n)
-  
+
   # Handle region/country
   if (is.null(region) && is.null(country)) {
     stop("Either 'region' or 'country' must be provided.")
   }
-  
+
   if (!is.null(country)) {
     country <- rep_len(toupper(country), n)
     if (is.null(region)) {
@@ -256,15 +252,15 @@ calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
     }
   }
   region <- rep_len(region, n)
-  
+
   # Validate inputs
   .validate_inputs_nonlab(age, sex, sbp, bmi, smoking, region)
-  
+
   # Center variables
   age_c <- age - 60
   sbp_c <- sbp - 120
   bmi_c <- bmi - 25
-  
+
   # Calculate risk for each observation
   risk <- mapply(
     .calculate_nonlab_risk_single,
@@ -277,7 +273,7 @@ calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
     age_raw = age,
     SIMPLIFY = TRUE
   )
-  
+
   return(risk)
 }
 
@@ -344,11 +340,11 @@ get_regions <- function() {
 #' @export
 get_country_codes <- function(country = NULL) {
   mapping <- .get_country_mapping()
-  
+
   if (is.null(country)) {
     return(mapping)
   }
-  
+
   country <- toupper(country)
   result <- mapping[country]
   names(result) <- country

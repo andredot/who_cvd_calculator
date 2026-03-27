@@ -1,8 +1,0 @@
-calculate_who_risk      Calculate WHO 10-Year CVD Risk
-                        (Laboratory-Based Model)
-calculate_who_risk_nonlab
-                        Calculate WHO 10-Year CVD Risk
-                        (Non-Laboratory-Based Model)
-country_to_region       Map Country Code to Region
-get_country_codes       Get Country Code to Region Mapping
-get_regions             Get Available Region Names
