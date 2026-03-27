@@ -6,3 +6,4 @@
 ^renv$
 ^renv\.lock$
 ^pat\.txt$
+^cran-comments\.md$
