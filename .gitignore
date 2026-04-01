@@ -4,3 +4,6 @@
 .Ruserdata
 pat.txt
 renv
+WHORiskCalculator.Rcheck/
+WHORiskCalculator*.tar.gz
+WHORiskCalculator*.tgz

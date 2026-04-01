@@ -7,3 +7,7 @@
 ^renv\.lock$
 ^pat\.txt$
 ^cran-comments\.md$
+^CRAN-SUBMISSION$
+^WHORiskCalculator\.Rcheck$
+^WHORiskCalculator.*\.tar\.gz$
+^WHORiskCalculator.*\.tgz$
