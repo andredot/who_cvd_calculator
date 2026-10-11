@@ -17,7 +17,12 @@ global regions. Lancet Glob Health. 2019;7(10):e1332-e1345.
 doi:10.1016/S2214-109X(19)30318-3
 }
 \author{
-\strong{Maintainer}: Andrea Pedot \email{andrea.pedot@unimi.it}
+\strong{Maintainer}: Andrea Pedot \email{andrea.pedot@unimi.it} [contributor]
+
+Authors:
+\itemize{
+  \item WHO CVD Risk Chart Working Group
+}
 
 }
 \keyword{internal}
