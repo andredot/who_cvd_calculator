@@ -9,7 +9,7 @@
     # North Africa and Middle East
     "DZA" = "north_africa_middle_east", "EGY" = "north_africa_middle_east",
     "LBY" = "north_africa_middle_east", "MAR" = "north_africa_middle_east",
-    "SSD" = "north_africa_middle_east", "SDN" = "north_africa_middle_east",
+    "SDN" = "north_africa_middle_east",
     "TUN" = "north_africa_middle_east", "AFG" = "north_africa_middle_east",
     "ARE" = "north_africa_middle_east", "BHR" = "north_africa_middle_east",
     "IRN" = "north_africa_middle_east", "IRQ" = "north_africa_middle_east",
@@ -30,7 +30,8 @@
     "ETH" = "eastern_subsaharan_africa", "KEN" = "eastern_subsaharan_africa",
     "MDG" = "eastern_subsaharan_africa", "MOZ" = "eastern_subsaharan_africa",
     "MWI" = "eastern_subsaharan_africa", "RWA" = "eastern_subsaharan_africa",
-    "SOM" = "eastern_subsaharan_africa", "TZA" = "eastern_subsaharan_africa",
+    "SOM" = "eastern_subsaharan_africa", "SSD" = "eastern_subsaharan_africa",
+    "TZA" = "eastern_subsaharan_africa",
     "UGA" = "eastern_subsaharan_africa", "ZMB" = "eastern_subsaharan_africa",
     
     # Southern Sub-Saharan Africa
@@ -128,7 +129,7 @@
     # Oceania
     "FJI" = "oceania", "FSM" = "oceania", "KIR" = "oceania", "MHL" = "oceania",
     "PNG" = "oceania", "SLB" = "oceania", "TON" = "oceania", "VUT" = "oceania",
-    "WSM" = "oceania", "ASM" = "oceania",
+    "WSM" = "oceania", "ASM" = "oceania", "GUM" = "oceania", "MNP" = "oceania",
     
     # Australasia
     "AUS" = "australasia", "NZL" = "australasia"
@@ -149,6 +150,29 @@
   }
   
   return(unname(regions))
+}
+
+
+#' Resolve Region and Country Arguments
+#' @noRd
+.resolve_region_country <- function(region, country, n, recalibration) {
+  if (is.null(region) && is.null(country)) {
+    stop("Either 'region' or 'country' must be provided.")
+  }
+  if (recalibration == "country" && is.null(country)) {
+    stop("'country' must be provided when recalibration = \"country\".")
+  }
+
+  if (!is.null(country)) {
+    country <- rep_len(toupper(country), n)
+    if (is.null(region)) {
+      region <- .map_country_to_region(country)
+    }
+  } else {
+    country <- rep_len(NA_character_, n)
+  }
+
+  list(region = rep_len(region, n), country = country)
 }
 
 
@@ -255,244 +279,6 @@
 }
 
 
-#' Get Region-Specific Incidence Rates
-#' @noRd
-.get_incidence <- function(region, outcome, sex, age) {
-  # Get the age group index (5-year bands starting at 40)
-  age_idx <- pmax(1, pmin(8, floor((age - 40) / 5) + 1))
-  
-  # Get incidence data for the region
-  inc_data <- .get_incidence_data()
-  
-  if (!region %in% names(inc_data)) {
-    stop("Incidence data not available for region: ", region)
-  }
-  
-  inc_region <- inc_data[[region]][[outcome]][[sex]]
-  return(inc_region[age_idx])
-}
-
-
-#' Get Incidence Data (stored internally)
-#' @noRd
-.get_incidence_data <- function() {
-  # Returns the incidence rates per 100,000 person-years
-  # Structure: region -> outcome (mi/stroke) -> sex -> age-specific rates
-  list(
-    north_africa_middle_east = list(
-      mi = list(
-        male = c(61, 105, 172, 273, 424, 634, 905, 1240),
-        female = c(18, 34, 63, 113, 192, 313, 489, 734)
-      ),
-      stroke = list(
-        male = c(52, 91, 152, 246, 386, 589, 871, 1252),
-        female = c(36, 63, 106, 173, 277, 430, 651, 963)
-      )
-    ),
-    central_subsaharan_africa = list(
-      mi = list(
-        male = c(27, 44, 69, 104, 153, 218, 302, 407),
-        female = c(10, 17, 29, 47, 73, 110, 162, 231)
-      ),
-      stroke = list(
-        male = c(68, 104, 153, 218, 303, 410, 541, 697),
-        female = c(51, 79, 118, 171, 242, 333, 449, 592)
-      )
-    ),
-    eastern_subsaharan_africa = list(
-      mi = list(
-        male = c(31, 50, 78, 117, 172, 245, 340, 459),
-        female = c(11, 19, 32, 51, 79, 120, 175, 250)
-      ),
-      stroke = list(
-        male = c(74, 113, 166, 236, 328, 444, 587, 756),
-        female = c(55, 85, 127, 184, 261, 360, 485, 639)
-      )
-    ),
-    southern_subsaharan_africa = list(
-      mi = list(
-        male = c(52, 84, 131, 199, 292, 419, 584, 794),
-        female = c(19, 33, 56, 92, 145, 221, 328, 473)
-      ),
-      stroke = list(
-        male = c(88, 134, 197, 281, 391, 530, 700, 904),
-        female = c(65, 101, 151, 219, 310, 428, 576, 760)
-      )
-    ),
-    western_subsaharan_africa = list(
-      mi = list(
-        male = c(25, 41, 63, 95, 139, 198, 274, 370),
-        female = c(9, 16, 27, 44, 68, 103, 151, 216)
-      ),
-      stroke = list(
-        male = c(63, 97, 142, 202, 280, 379, 500, 645),
-        female = c(47, 73, 109, 158, 224, 309, 416, 548)
-      )
-    ),
-    southern_latin_america = list(
-      mi = list(
-        male = c(44, 73, 116, 178, 265, 385, 543, 746),
-        female = c(11, 21, 38, 66, 111, 178, 277, 417)
-      ),
-      stroke = list(
-        male = c(30, 51, 83, 130, 199, 296, 428, 603),
-        female = c(20, 35, 59, 95, 149, 227, 338, 490)
-      )
-    ),
-    high_income_north_america = list(
-      mi = list(
-        male = c(71, 116, 182, 277, 408, 584, 812, 1097),
-        female = c(21, 38, 67, 115, 188, 298, 455, 673)
-      ),
-      stroke = list(
-        male = c(27, 47, 79, 128, 201, 308, 456, 659),
-        female = c(20, 35, 59, 97, 155, 241, 365, 538)
-      )
-    ),
-    caribbean = list(
-      mi = list(
-        male = c(74, 119, 186, 282, 414, 591, 820, 1106),
-        female = c(28, 48, 82, 134, 211, 323, 478, 687)
-      ),
-      stroke = list(
-        male = c(55, 92, 147, 229, 345, 505, 718, 994),
-        female = c(43, 72, 117, 184, 281, 418, 604, 852)
-      )
-    ),
-    andean_latin_america = list(
-      mi = list(
-        male = c(26, 43, 68, 104, 155, 226, 319, 440),
-        female = c(9, 16, 28, 47, 76, 119, 181, 268)
-      ),
-      stroke = list(
-        male = c(25, 42, 69, 109, 167, 249, 361, 510),
-        female = c(19, 33, 54, 87, 136, 207, 308, 445)
-      )
-    ),
-    central_latin_america = list(
-      mi = list(
-        male = c(52, 85, 134, 205, 304, 439, 616, 841),
-        female = c(17, 30, 53, 89, 144, 225, 341, 501)
-      ),
-      stroke = list(
-        male = c(33, 56, 91, 143, 218, 323, 465, 653),
-        female = c(25, 43, 71, 113, 176, 266, 391, 560)
-      )
-    ),
-    tropical_latin_america = list(
-      mi = list(
-        male = c(61, 99, 155, 235, 347, 498, 695, 943),
-        female = c(20, 35, 61, 101, 163, 254, 383, 562)
-      ),
-      stroke = list(
-        male = c(43, 72, 116, 181, 275, 406, 583, 815),
-        female = c(32, 54, 89, 141, 219, 330, 484, 692)
-      )
-    ),
-    east_asia = list(
-      mi = list(
-        male = c(44, 72, 114, 174, 258, 373, 523, 714),
-        female = c(14, 25, 44, 74, 121, 190, 290, 431)
-      ),
-      stroke = list(
-        male = c(97, 159, 251, 383, 567, 816, 1140, 1549),
-        female = c(63, 105, 169, 264, 401, 591, 846, 1180)
-      )
-    ),
-    south_asia = list(
-      mi = list(
-        male = c(111, 172, 258, 375, 529, 727, 972, 1265),
-        female = c(43, 68, 106, 160, 235, 336, 469, 639)
-      ),
-      stroke = list(
-        male = c(70, 111, 170, 253, 367, 518, 712, 955),
-        female = c(52, 84, 131, 199, 293, 422, 592, 811)
-      )
-    ),
-    southeast_asia = list(
-      mi = list(
-        male = c(61, 99, 155, 236, 349, 502, 703, 958),
-        female = c(22, 38, 66, 109, 176, 274, 414, 607)
-      ),
-      stroke = list(
-        male = c(91, 147, 228, 343, 502, 714, 988, 1331),
-        female = c(63, 103, 163, 250, 373, 541, 765, 1054)
-      )
-    ),
-    central_asia = list(
-      mi = list(
-        male = c(137, 217, 333, 494, 713, 1001, 1369, 1823),
-        female = c(38, 66, 112, 184, 291, 449, 673, 981)
-      ),
-      stroke = list(
-        male = c(121, 192, 294, 438, 633, 892, 1222, 1633),
-        female = c(81, 131, 206, 313, 464, 670, 942, 1292)
-      )
-    ),
-    high_income_asia_pacific = list(
-      mi = list(
-        male = c(24, 40, 64, 100, 152, 224, 322, 451),
-        female = c(6, 11, 20, 35, 58, 94, 148, 226)
-      ),
-      stroke = list(
-        male = c(44, 74, 119, 186, 283, 418, 601, 843),
-        female = c(24, 42, 70, 113, 177, 269, 398, 574)
-      )
-    ),
-    western_europe = list(
-      mi = list(
-        male = c(49, 81, 129, 199, 298, 434, 616, 850),
-        female = c(10, 19, 34, 60, 102, 166, 262, 402)
-      ),
-      stroke = list(
-        male = c(26, 45, 75, 121, 190, 291, 433, 628),
-        female = c(16, 28, 48, 80, 129, 202, 308, 458)
-      )
-    ),
-    central_europe = list(
-      mi = list(
-        male = c(87, 140, 218, 330, 486, 697, 973, 1323),
-        female = c(21, 37, 65, 110, 181, 288, 444, 665)
-      ),
-      stroke = list(
-        male = c(62, 103, 165, 257, 389, 573, 822, 1150),
-        female = c(39, 66, 109, 174, 271, 411, 605, 869)
-      )
-    ),
-    eastern_europe = list(
-      mi = list(
-        male = c(178, 281, 431, 638, 921, 1295, 1775, 2373),
-        female = c(44, 77, 132, 217, 346, 536, 807, 1182)
-      ),
-      stroke = list(
-        male = c(117, 186, 287, 427, 620, 875, 1203, 1611),
-        female = c(73, 119, 187, 286, 425, 615, 868, 1195)
-      )
-    ),
-    oceania = list(
-      mi = list(
-        male = c(99, 155, 235, 346, 495, 690, 936, 1238),
-        female = c(42, 68, 109, 168, 253, 369, 524, 724)
-      ),
-      stroke = list(
-        male = c(97, 152, 230, 339, 486, 678, 920, 1218),
-        female = c(72, 114, 175, 261, 379, 537, 739, 994)
-      )
-    ),
-    australasia = list(
-      mi = list(
-        male = c(53, 88, 140, 216, 323, 471, 667, 920),
-        female = c(13, 24, 43, 74, 123, 197, 306, 461)
-      ),
-      stroke = list(
-        male = c(22, 38, 64, 104, 165, 254, 380, 554),
-        female = c(16, 28, 48, 79, 127, 199, 303, 451)
-      )
-    )
-  )
-}
-
-
 #' Get Model Coefficients for Laboratory-Based Model
 #' @noRd
 .get_lab_coef <- function(outcome, sex) {
@@ -508,7 +294,7 @@
         log_hr_sbp_age = -0.0001576,
         log_hr_diabetes_age = -0.0124966,
         log_hr_smoking_age = -0.0182545,
-        baseline_survival = 0.954
+        baseline_survival = 0.9540108
       ),
       female = list(
         log_hr_age = 0.1020713,
@@ -520,7 +306,7 @@
         log_hr_sbp_age = -0.0001378,
         log_hr_diabetes_age = -0.0234174,
         log_hr_smoking_age = -0.0332666,
-        baseline_survival = 0.989
+        baseline_survival = 0.9894159
       )
     ),
     stroke = list(
@@ -534,7 +320,7 @@
         log_hr_sbp_age = -0.0004147,
         log_hr_diabetes_age = -0.026302,
         log_hr_smoking_age = -0.0150561,
-        baseline_survival = 0.985
+        baseline_survival = 0.9849257
       ),
       female = list(
         log_hr_age = 0.1056632,
@@ -546,7 +332,7 @@
         log_hr_sbp_age = -0.0004897,
         log_hr_diabetes_age = -0.0209826,
         log_hr_smoking_age = -0.0200822,
-        baseline_survival = 0.989
+        baseline_survival = 0.9890569
       )
     )
   )
@@ -568,7 +354,7 @@
         log_hr_bmi_age = -0.0010432,
         log_hr_sbp_age = -0.0001837,
         log_hr_smoking_age = -0.0200831,
-        baseline_survival = 0.954
+        baseline_survival = 0.9544258
       ),
       female = list(
         log_hr_age = 0.1049418,
@@ -578,7 +364,7 @@
         log_hr_bmi_age = -0.0006537,
         log_hr_sbp_age = -0.0001966,
         log_hr_smoking_age = -0.0343739,
-        baseline_survival = 0.989
+        baseline_survival = 0.9887124
       )
     ),
     stroke = list(
@@ -590,7 +376,7 @@
         log_hr_bmi_age = -0.0003516,
         log_hr_sbp_age = -0.0004374,
         log_hr_smoking_age = -0.0153895,
-        baseline_survival = 0.985
+        baseline_survival = 0.9848260
       ),
       female = list(
         log_hr_age = 0.1046105,
@@ -600,7 +386,7 @@
         log_hr_bmi_age = -0.0000129,
         log_hr_sbp_age = -0.0005311,
         log_hr_smoking_age = -0.0203997,
-        baseline_survival = 0.989
+        baseline_survival = 0.9885706
       )
     )
   )
@@ -609,135 +395,113 @@
 }
 
 
-#' Calculate Laboratory-Based Risk for Single Observation
+
+
+#' Uncalibrated 10-Year Risk from the Derivation (ERFC) Model
+#'
+#' Computes 1 - S0^exp(LP) for one endpoint, using the sex-specific
+#' coefficients and baseline survival of the derivation cohort.
 #' @noRd
-.calculate_lab_risk_single <- function(age_c, sbp_c, chol_c, smoking, diabetes,
-                                        sex, region, age_raw) {
-  
-  # Get coefficients for MI/CHD
-  coef_mi <- .get_lab_coef("mi_chd", sex)
-  
-  # Calculate linear predictor for MI/CHD
-  lp_mi <- coef_mi$log_hr_age * age_c +
-    coef_mi$log_hr_chol * chol_c +
-    coef_mi$log_hr_sbp * sbp_c +
-    coef_mi$log_hr_diabetes * as.numeric(diabetes) +
-    coef_mi$log_hr_smoking * as.numeric(smoking) +
-    coef_mi$log_hr_chol_age * chol_c * age_c +
-    coef_mi$log_hr_sbp_age * sbp_c * age_c +
-    coef_mi$log_hr_diabetes_age * as.numeric(diabetes) * age_c +
-    coef_mi$log_hr_smoking_age * as.numeric(smoking) * age_c
-  
-  # Get coefficients for Stroke
-  coef_stroke <- .get_lab_coef("stroke", sex)
-  
-  # Calculate linear predictor for Stroke
-  lp_stroke <- coef_stroke$log_hr_age * age_c +
-    coef_stroke$log_hr_chol * chol_c +
-    coef_stroke$log_hr_sbp * sbp_c +
-    coef_stroke$log_hr_diabetes * as.numeric(diabetes) +
-    coef_stroke$log_hr_smoking * as.numeric(smoking) +
-    coef_stroke$log_hr_chol_age * chol_c * age_c +
-    coef_stroke$log_hr_sbp_age * sbp_c * age_c +
-    coef_stroke$log_hr_diabetes_age * as.numeric(diabetes) * age_c +
-    coef_stroke$log_hr_smoking_age * as.numeric(smoking) * age_c
-  
-  # Get region-specific incidence
-  inc_mi <- .get_incidence(region, "mi", sex, age_raw)
-  inc_stroke <- .get_incidence(region, "stroke", sex, age_raw)
-  
-  # Calculate recalibration factors
-  # Using the recalibration approach from the supplementary methods
-  # The 10-year risk is calculated using region-specific baseline hazards
-  
-  # Calculate 10-year cumulative incidence (approximate using annual rates)
-  # Converting incidence per 100,000 to probability
-  annual_rate_mi <- inc_mi / 100000
-  annual_rate_stroke <- inc_stroke / 100000
-  
-  # Apply hazard ratios to get individual risk
-  # Using the formula: risk = 1 - S0^exp(LP)
-  # Where S0 is recalibrated based on regional incidence
-  
-  # Baseline survival recalibrated to region
-  # The baseline survival from derivation data is adjusted using ratio of
-  # regional to derivation incidence
-  
-  # Simplified recalibration: use 10-year cumulative incidence
-  p_mi_baseline <- 1 - exp(-10 * annual_rate_mi)
-  p_stroke_baseline <- 1 - exp(-10 * annual_rate_stroke)
-  
-  # Apply hazard ratio
-  # For Cox model: P(t) = 1 - S0(t)^exp(LP)
-  # We approximate S0 from regional baseline probability
-  s0_mi <- 1 - p_mi_baseline
-  s0_stroke <- 1 - p_stroke_baseline
-  
-  # Individual probabilities
-  p_mi <- 1 - s0_mi^exp(lp_mi)
-  p_stroke <- 1 - s0_stroke^exp(lp_stroke)
-  
-  # Bound probabilities
-  p_mi <- pmax(0, pmin(1, p_mi))
-  p_stroke <- pmax(0, pmin(1, p_stroke))
-  
-  # Combined CVD risk (assuming independence)
-  p_cvd <- 1 - (1 - p_mi) * (1 - p_stroke)
-  
-  return(p_cvd)
+.uncalibrated_risk <- function(coef_fun, outcome, sex, age_c, sbp_c, x_c,
+                               x_name, smoking, diabetes = NULL) {
+  risk <- numeric(length(sex))
+  for (s in c("male", "female")) {
+    idx <- sex == s
+    if (!any(idx)) next
+    b <- coef_fun(outcome, s)
+    a <- age_c[idx]
+    x <- x_c[idx]
+    sbp <- sbp_c[idx]
+    smk <- as.numeric(smoking[idx])
+
+    lp <- b$log_hr_age * a +
+      b[[paste0("log_hr_", x_name)]] * x +
+      b$log_hr_sbp * sbp +
+      b$log_hr_smoking * smk +
+      b[[paste0("log_hr_", x_name, "_age")]] * x * a +
+      b$log_hr_sbp_age * sbp * a +
+      b$log_hr_smoking_age * smk * a
+
+    if (!is.null(diabetes)) {
+      dm <- as.numeric(diabetes[idx])
+      lp <- lp + b$log_hr_diabetes * dm + b$log_hr_diabetes_age * dm * a
+    }
+
+    risk[idx] <- 1 - b$baseline_survival^exp(lp)
+  }
+  risk
 }
 
 
-#' Calculate Non-Laboratory-Based Risk for Single Observation
+#' Recalibrate Risk on the Complementary Log-Log Scale
+#'
+#' calibrated = 1 - exp(-exp(cons + slope * log(-log(1 - risk))))
 #' @noRd
-.calculate_nonlab_risk_single <- function(age_c, sbp_c, bmi_c, smoking,
-                                           sex, region, age_raw) {
-  
-  # Get coefficients for MI/CHD
-  coef_mi <- .get_nonlab_coef("mi_chd", sex)
-  
-  # Calculate linear predictor for MI/CHD
-  lp_mi <- coef_mi$log_hr_age * age_c +
-    coef_mi$log_hr_bmi * bmi_c +
-    coef_mi$log_hr_sbp * sbp_c +
-    coef_mi$log_hr_smoking * as.numeric(smoking) +
-    coef_mi$log_hr_bmi_age * bmi_c * age_c +
-    coef_mi$log_hr_sbp_age * sbp_c * age_c +
-    coef_mi$log_hr_smoking_age * as.numeric(smoking) * age_c
-  
-  # Get coefficients for Stroke
-  coef_stroke <- .get_nonlab_coef("stroke", sex)
-  
-  # Calculate linear predictor for Stroke
-  lp_stroke <- coef_stroke$log_hr_age * age_c +
-    coef_stroke$log_hr_bmi * bmi_c +
-    coef_stroke$log_hr_sbp * sbp_c +
-    coef_stroke$log_hr_smoking * as.numeric(smoking) +
-    coef_stroke$log_hr_bmi_age * bmi_c * age_c +
-    coef_stroke$log_hr_sbp_age * sbp_c * age_c +
-    coef_stroke$log_hr_smoking_age * as.numeric(smoking) * age_c
-  
-  # Get region-specific incidence
-  inc_mi <- .get_incidence(region, "mi", sex, age_raw)
-  inc_stroke <- .get_incidence(region, "stroke", sex, age_raw)
-  
-  # Calculate 10-year risk using same approach as lab model
-  annual_rate_mi <- inc_mi / 100000
-  annual_rate_stroke <- inc_stroke / 100000
-  
-  p_mi_baseline <- 1 - exp(-10 * annual_rate_mi)
-  p_stroke_baseline <- 1 - exp(-10 * annual_rate_stroke)
-  
-  s0_mi <- 1 - p_mi_baseline
-  s0_stroke <- 1 - p_stroke_baseline
-  
-  p_mi <- 1 - s0_mi^exp(lp_mi)
-  p_stroke <- 1 - s0_stroke^exp(lp_stroke)
-  
-  p_mi <- pmax(0, pmin(1, p_mi))
-  p_stroke <- pmax(0, pmin(1, p_stroke))
-  
-  p_cvd <- 1 - (1 - p_mi) * (1 - p_stroke)
-  
-  return(p_cvd)
+.recalibrate <- function(risk, cons, slope) {
+  1 - exp(-exp(cons + slope * log(-log(1 - risk))))
+}
+
+
+#' Map Calendar Year to the Recalibration Period
+#'
+#' Parameters are available for 1990, 1995, ..., 2015, 2016 and 2017; years up
+#' to 2015 use the 5-year period they fall in (as in the authors' Stata code).
+#' @noRd
+.calibration_year <- function(year) {
+  if (any(is.na(year))) {
+    stop("Missing values in 'year' are not allowed.")
+  }
+  if (any(year < 1990 | year > 2017)) {
+    stop("'year' must be between 1990 and 2017 (GBD 2017 recalibration).")
+  }
+  year <- floor(year)
+  as.integer(ifelse(year <= 2015, 5 * floor(year / 5), year))
+}
+
+
+#' Look Up Recalibration Parameters
+#'
+#' Returns a data frame with the cons/slope columns of
+#' `.calibration_parameters` for each observation. With
+#' `recalibration = "country"`, observations whose country has no
+#' country-specific estimate fall back to their region, with a warning.
+#' @noRd
+.get_calibration <- function(sex, region, country, recalibration, year) {
+  parms <- .calibration_parameters
+  keys <- paste(parms$level, parms$code, parms$sex, parms$year)
+  calyear <- .calibration_year(year)
+
+  row <- match(paste("region", region, sex, calyear), keys)
+
+  if (recalibration == "country") {
+    row_country <- match(paste("country", country, sex, calyear), keys)
+    missing <- is.na(row_country)
+    if (any(missing)) {
+      warning("No country-specific recalibration available for: ",
+              paste(unique(paste0(country[missing], " (", calyear[missing], ")")),
+                    collapse = ", "),
+              ". Using region-level recalibration instead.")
+    }
+    row <- ifelse(missing, row, row_country)
+  }
+
+  parms[row, , drop = FALSE]
+}
+
+
+#' Calculate Recalibrated CVD Risk
+#'
+#' Calibrates CHD/MI and stroke risks separately and combines them assuming
+#' independence: 1 - (1 - p_chd) * (1 - p_stroke).
+#' @noRd
+.calibrated_cvd_risk <- function(p_chd, p_stroke, model, sex, region, country,
+                                 recalibration, year) {
+  cal <- .get_calibration(sex, region, country, recalibration, year)
+
+  p_chd <- .recalibrate(p_chd, cal[[paste0(model, "_chd_cons")]],
+                        cal[[paste0(model, "_chd_slope")]])
+  p_stroke <- .recalibrate(p_stroke, cal[[paste0(model, "_stroke_cons")]],
+                           cal[[paste0(model, "_stroke_slope")]])
+
+  1 - (1 - p_chd) * (1 - p_stroke)
 }

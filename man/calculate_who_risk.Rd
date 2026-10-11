@@ -12,7 +12,9 @@ calculate_who_risk(
   smoking,
   diabetes,
   region = NULL,
-  country = NULL
+  country = NULL,
+  recalibration = c("region", "country"),
+  year = 2017
 )
 }
 \arguments{
@@ -36,6 +38,16 @@ regions (see \code{\link{get_regions}} for valid values). If NULL and
 \item{country}{Character vector. ISO 3166-1 alpha-3 country code (e.g., "USA",
 "GBR", "IND"). Used to determine region if \code{region} is NULL.
 See \code{\link{get_country_codes}} for valid values.}
+
+\item{recalibration}{Character. Level of recalibration: \code{"region"}
+(default) uses the 21 GBD region parameters behind the published WHO risk
+charts; \code{"country"} uses country-specific parameters and requires
+\code{country}. Countries without country-specific estimates fall back to
+their region with a warning.}
+
+\item{year}{Integer vector. Calendar year of the recalibration target
+population (1990-2017, default 2017). Years up to 2015 use the 5-year
+period they fall in (1990, 1995, ..., 2015).}
 }
 \value{
 Numeric vector of 10-year CVD risk as a proportion (0-1).
@@ -61,8 +73,14 @@ Risk is calculated separately for myocardial infarction/CHD death and stroke,
 then combined assuming independence of the two outcomes:
 \deqn{P_{CVD} = 1 - (1 - P_{MI}) \times (1 - P_{stroke})}
 
-The model is recalibrated to region-specific incidence rates and mean risk
-factor levels from the Global Burden of Disease study.
+Each endpoint risk is first computed from the derivation model,
+\eqn{P = 1 - S_0^{\exp(LP)}}, using the baseline survival \eqn{S_0} of the
+derivation cohort, and then recalibrated on the complementary log-log scale:
+\deqn{P_{cal} = 1 - \exp(-\exp(c + s \log(-\log(1 - P))))}
+where the intercept \eqn{c} and slope \eqn{s} are specific to region (or
+country), sex, endpoint and year. These parameters were fitted by the
+authors to GBD 2017 incidence rates and NCD-RisC risk factor levels and are
+taken from their Stata implementation (\code{whocvdrisk}).
 }
 \section{Centering Values}{
 
@@ -95,6 +113,18 @@ calculate_who_risk(
   smoking = FALSE,
   diabetes = TRUE,
   country = "ITA"
+)
+
+# Country-specific instead of region-level recalibration
+calculate_who_risk(
+  age = 45,
+  sex = "male",
+  sbp = 140,
+  cholesterol = 5.5,
+  smoking = TRUE,
+  diabetes = FALSE,
+  country = "GBR",
+  recalibration = "country"
 )
 
 # Vectorized calculation

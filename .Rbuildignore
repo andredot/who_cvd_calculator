@@ -11,3 +11,4 @@
 ^WHORiskCalculator\.Rcheck$
 ^WHORiskCalculator.*\.tar\.gz$
 ^WHORiskCalculator.*\.tgz$
+^data-raw$

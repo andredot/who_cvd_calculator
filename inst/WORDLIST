@@ -3,13 +3,18 @@ Bacquer
 CHD
 CVD
 De
+ERFC
 GBD
 GBR
 HDL
 Kaptoge
+NCD
 Pennells
+RisC
+Stata
 WHOrisk
 al
+cons
 dL
 doi
 et
@@ -17,4 +22,6 @@ mmHg
 mmol
 recalibrated
 recalibration
+testthat
 uri
+whocvdrisk

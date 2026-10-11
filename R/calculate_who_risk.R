@@ -34,6 +34,14 @@
 #' @param country Character vector. ISO 3166-1 alpha-3 country code (e.g., "USA",
 #'   "GBR", "IND"). Used to determine region if \code{region} is NULL.
 #'   See \code{\link{get_country_codes}} for valid values.
+#' @param recalibration Character. Level of recalibration: \code{"region"}
+#'   (default) uses the 21 GBD region parameters behind the published WHO risk
+#'   charts; \code{"country"} uses country-specific parameters and requires
+#'   \code{country}. Countries without country-specific estimates fall back to
+#'   their region with a warning.
+#' @param year Integer vector. Calendar year of the recalibration target
+#'   population (1990-2017, default 2017). Years up to 2015 use the 5-year
+#'   period they fall in (1990, 1995, ..., 2015).
 #'
 #' @return Numeric vector of 10-year CVD risk as a proportion (0-1).
 #'   Multiply by 100 to get percentage.
@@ -53,8 +61,14 @@
 #' then combined assuming independence of the two outcomes:
 #' \deqn{P_{CVD} = 1 - (1 - P_{MI}) \times (1 - P_{stroke})}
 #'
-#' The model is recalibrated to region-specific incidence rates and mean risk
-#' factor levels from the Global Burden of Disease study.
+#' Each endpoint risk is first computed from the derivation model,
+#' \eqn{P = 1 - S_0^{\exp(LP)}}, using the baseline survival \eqn{S_0} of the
+#' derivation cohort, and then recalibrated on the complementary log-log scale:
+#' \deqn{P_{cal} = 1 - \exp(-\exp(c + s \log(-\log(1 - P))))}
+#' where the intercept \eqn{c} and slope \eqn{s} are specific to region (or
+#' country), sex, endpoint and year. These parameters were fitted by the
+#' authors to GBD 2017 incidence rates and NCD-RisC risk factor levels and are
+#' taken from their Stata implementation (\code{whocvdrisk}).
 #'
 #' @section Centering Values:
 #' Variables are centered at:
@@ -87,6 +101,18 @@
 #'   country = "ITA"
 #' )
 #'
+#' # Country-specific instead of region-level recalibration
+#' calculate_who_risk(
+#'   age = 45,
+#'   sex = "male",
+#'   sbp = 140,
+#'   cholesterol = 5.5,
+#'   smoking = TRUE,
+#'   diabetes = FALSE,
+#'   country = "GBR",
+#'   recalibration = "country"
+#' )
+#'
 #' # Vectorized calculation
 #' calculate_who_risk(
 #'   age = c(45, 55, 65),
@@ -105,12 +131,14 @@
 #'
 #' @export
 calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
-                               region = NULL, country = NULL) {
-
+                               region = NULL, country = NULL,
+                               recalibration = c("region", "country"),
+                               year = 2017) {
+  recalibration <- match.arg(recalibration)
 
   # Input validation and recycling
   n <- max(length(age), length(sex), length(sbp), length(cholesterol),
-           length(smoking), length(diabetes),
+           length(smoking), length(diabetes), length(year),
            if (!is.null(region)) length(region) else 0,
            if (!is.null(country)) length(country) else 0)
 
@@ -120,19 +148,11 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
   cholesterol <- rep_len(cholesterol, n)
   smoking <- rep_len(as.logical(smoking), n)
   diabetes <- rep_len(as.logical(diabetes), n)
+  year <- rep_len(year, n)
 
-  # Handle region/country
-  if (is.null(region) && is.null(country)) {
-    stop("Either 'region' or 'country' must be provided.")
-  }
-
-  if (!is.null(country)) {
-    country <- rep_len(toupper(country), n)
-    if (is.null(region)) {
-      region <- .map_country_to_region(country)
-    }
-  }
-  region <- rep_len(region, n)
+  region_country <- .resolve_region_country(region, country, n, recalibration)
+  region <- region_country$region
+  country <- region_country$country
 
   # Validate inputs
   .validate_inputs(age, sex, sbp, cholesterol, smoking, diabetes, region)
@@ -142,19 +162,14 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
   sbp_c <- sbp - 120
   chol_c <- cholesterol - 6
 
-  # Calculate risk for each observation
-  risk <- mapply(
-    .calculate_lab_risk_single,
-    age_c = age_c,
-    sbp_c = sbp_c,
-    chol_c = chol_c,
-    smoking = smoking,
-    diabetes = diabetes,
-    sex = sex,
-    region = region,
-    age_raw = age,
-    SIMPLIFY = TRUE
-  )
+  # Uncalibrated risks from the derivation model
+  p_chd <- .uncalibrated_risk(.get_lab_coef, "mi_chd", sex, age_c, sbp_c,
+                              chol_c, "chol", smoking, diabetes)
+  p_stroke <- .uncalibrated_risk(.get_lab_coef, "stroke", sex, age_c, sbp_c,
+                                 chol_c, "chol", smoking, diabetes)
+
+  risk <- .calibrated_cvd_risk(p_chd, p_stroke, "lab", sex, region, country,
+                               recalibration, year)
 
   return(risk)
 }
@@ -177,6 +192,14 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #'   regions (see \code{\link{get_regions}} for valid values). If NULL and
 #'   \code{country} is provided, region will be determined automatically.
 #' @param country Character vector. ISO 3166-1 alpha-3 country code.
+#' @param recalibration Character. Level of recalibration: \code{"region"}
+#'   (default) uses the 21 GBD region parameters behind the published WHO risk
+#'   charts; \code{"country"} uses country-specific parameters and requires
+#'   \code{country}. Countries without country-specific estimates fall back to
+#'   their region with a warning.
+#' @param year Integer vector. Calendar year of the recalibration target
+#'   population (1990-2017, default 2017). Years up to 2015 use the 5-year
+#'   period they fall in (1990, 1995, ..., 2015).
 #'
 #' @return Numeric vector of 10-year CVD risk as a proportion (0-1).
 #'
@@ -227,10 +250,14 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #'
 #' @export
 calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
-                                      region = NULL, country = NULL) {
+                                      region = NULL, country = NULL,
+                                      recalibration = c("region", "country"),
+                                      year = 2017) {
+  recalibration <- match.arg(recalibration)
 
   # Input validation and recycling
   n <- max(length(age), length(sex), length(sbp), length(bmi), length(smoking),
+           length(year),
            if (!is.null(region)) length(region) else 0,
            if (!is.null(country)) length(country) else 0)
 
@@ -239,19 +266,11 @@ calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
   sbp <- rep_len(sbp, n)
   bmi <- rep_len(bmi, n)
   smoking <- rep_len(as.logical(smoking), n)
+  year <- rep_len(year, n)
 
-  # Handle region/country
-  if (is.null(region) && is.null(country)) {
-    stop("Either 'region' or 'country' must be provided.")
-  }
-
-  if (!is.null(country)) {
-    country <- rep_len(toupper(country), n)
-    if (is.null(region)) {
-      region <- .map_country_to_region(country)
-    }
-  }
-  region <- rep_len(region, n)
+  region_country <- .resolve_region_country(region, country, n, recalibration)
+  region <- region_country$region
+  country <- region_country$country
 
   # Validate inputs
   .validate_inputs_nonlab(age, sex, sbp, bmi, smoking, region)
@@ -261,18 +280,14 @@ calculate_who_risk_nonlab <- function(age, sex, sbp, bmi, smoking,
   sbp_c <- sbp - 120
   bmi_c <- bmi - 25
 
-  # Calculate risk for each observation
-  risk <- mapply(
-    .calculate_nonlab_risk_single,
-    age_c = age_c,
-    sbp_c = sbp_c,
-    bmi_c = bmi_c,
-    smoking = smoking,
-    sex = sex,
-    region = region,
-    age_raw = age,
-    SIMPLIFY = TRUE
-  )
+  # Uncalibrated risks from the derivation model
+  p_chd <- .uncalibrated_risk(.get_nonlab_coef, "mi_chd", sex, age_c, sbp_c,
+                              bmi_c, "bmi", smoking)
+  p_stroke <- .uncalibrated_risk(.get_nonlab_coef, "stroke", sex, age_c, sbp_c,
+                                 bmi_c, "bmi", smoking)
+
+  risk <- .calibrated_cvd_risk(p_chd, p_stroke, "nonlab", sex, region, country,
+                               recalibration, year)
 
   return(risk)
 }

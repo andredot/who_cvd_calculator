@@ -11,7 +11,9 @@ calculate_who_risk_nonlab(
   bmi,
   smoking,
   region = NULL,
-  country = NULL
+  country = NULL,
+  recalibration = c("region", "country"),
+  year = 2017
 )
 }
 \arguments{
@@ -30,6 +32,16 @@ regions (see \code{\link{get_regions}} for valid values). If NULL and
 \code{country} is provided, region will be determined automatically.}
 
 \item{country}{Character vector. ISO 3166-1 alpha-3 country code.}
+
+\item{recalibration}{Character. Level of recalibration: \code{"region"}
+(default) uses the 21 GBD region parameters behind the published WHO risk
+charts; \code{"country"} uses country-specific parameters and requires
+\code{country}. Countries without country-specific estimates fall back to
+their region with a warning.}
+
+\item{year}{Integer vector. Calendar year of the recalibration target
+population (1990-2017, default 2017). Years up to 2015 use the 5-year
+period they fall in (1990, 1995, ..., 2015).}
 }
 \value{
 Numeric vector of 10-year CVD risk as a proportion (0-1).
