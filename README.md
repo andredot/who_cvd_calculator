@@ -1,4 +1,4 @@
-# WHOrisk: WHO Cardiovascular Disease Risk Calculator
+# WHORiskCalculator: WHO Cardiovascular Disease Risk Calculator
 
 An R package implementing the 2019 WHO cardiovascular disease (CVD) risk prediction models for 21 global regions.
 
@@ -16,17 +16,18 @@ This package calculates 10-year risk of cardiovascular disease (fatal and non-fa
 -   **Fully vectorized** for efficient batch calculations
 -   **Zero dependencies** - uses only base R
 -   **Automatic country-to-region mapping** using ISO 3166-1 alpha-3 country codes
--   **21 global regions** with region-specific recalibration, plus optional country-specific recalibration
+-   **21 global regions** with region-level recalibration by default (as in the published WHO risk charts), plus optional country-level recalibration
 -   **Matches the authors' implementation**: recalibration parameters taken from the authors' Stata program [`whocvdrisk`](https://github.com/skkceu/stata)
 
 ## Installation
 
 ``` r
-# Install from source
-install.packages("WHOrisk", repos = NULL, type = "source")
+# From CRAN
+install.packages("WHORiskCalculator")
 
-# Or using devtools
-devtools::install_local("path/to/WHOrisk")
+# Development version from GitHub
+# install.packages("remotes")
+remotes::install_github("andredot/who_cvd_calculator")
 ```
 
 ## Usage
@@ -34,7 +35,7 @@ devtools::install_local("path/to/WHOrisk")
 ### Laboratory-Based Model
 
 ``` r
-library(WHOrisk)
+library(WHORiskCalculator)
 
 # Single patient calculation using region
 risk <- calculate_who_risk(
@@ -86,26 +87,44 @@ risk <- calculate_who_risk_nonlab(
 )
 ```
 
-### Recalibration Options
+### Recalibration: Region (Default) or Country
 
-By default, risks are recalibrated to the 21 GBD regions for 2017, as in the published WHO risk charts. Country-specific recalibration and earlier calendar years are also available:
+Both functions take a `recalibration` argument:
+
+| `recalibration` | Parameters used | Matches | Requires |
+|-----------------|-----------------|---------|----------|
+| `"region"` (default) | One set per WHO/GBD region, sex and year | Published WHO risk charts; default output of the authors' Stata program | `region` or `country` |
+| `"country"` | One set per country, sex and year | Country-specific (`cal1`) output of the authors' Stata program | `country` |
+
+**Region-level (default).** Use this to get chart-equivalent risks. If you pass `country`, it is only used to find the region, so all countries in a region get the same result.
+
+**Country-level (optional).** Use this when you want estimates recalibrated to a specific country's GBD 2017 incidence rates and NCD-RisC risk factor levels. Results can differ substantially from region-level ones:
 
 ``` r
-# Country-specific recalibration (requires `country`)
-calculate_who_risk(
-  age = 45, sex = "male", sbp = 140, cholesterol = 5.5,
-  smoking = TRUE, diabetes = FALSE,
-  country = "GBR", recalibration = "country"
-)
-
-# Recalibrate to an earlier year (1990-2017; years up to 2015 use 5-year periods)
-calculate_who_risk_nonlab(
-  age = 55, sex = "female", sbp = 135, bmi = 26, smoking = FALSE,
-  country = "KEN", year = 2005
-)
+# 45-year-old male smoker, UK, SBP 140 mmHg, total cholesterol 5.5 mmol/L
+calculate_who_risk(45, "male", 140, 5.5, smoking = TRUE, diabetes = FALSE,
+                   country = "GBR")                            # region:  ~7.0%
+calculate_who_risk(45, "male", 140, 5.5, smoking = TRUE, diabetes = FALSE,
+                   country = "GBR", recalibration = "country") # country: ~9.4%
 ```
 
-A few territories (e.g. South Sudan, American Samoa, Guam) have no country-specific estimates; these fall back to their region with a warning.
+| Age | Region-level (Western Europe) | Country-level (United Kingdom) |
+|-----|-------------------------------|--------------------------------|
+| 45  | 7.0%                          | 9.4%                           |
+| 55  | 11.5%                         | 15.6%                          |
+| 65  | 18.5%                         | 25.2%                          |
+| 75  | 28.9%                         | 39.3%                          |
+
+Country-specific estimates are not available for South Sudan (`SSD`), the US Virgin Islands (`VIR`), American Samoa (`ASM`), Guam (`GUM`) and the Northern Mariana Islands (`MNP`), nor for Greenland (`GRL`), Bermuda (`BMU`) and Puerto Rico (`PRI`) before 2015. For these, the region-level parameters are used and a warning is issued.
+
+**Calendar year.** `year` (default 2017, as in the charts) selects the year of the recalibration target population. Parameters exist for 1990, 1995, 2000, 2005, 2010, 2015, 2016 and 2017; other years up to 2015 use the 5-year period they fall in (e.g. 2003 uses 2000).
+
+``` r
+calculate_who_risk_nonlab(
+  age = 55, sex = "female", sbp = 135, bmi = 26, smoking = FALSE,
+  country = "KEN", recalibration = "country", year = 2010
+)
+```
 
 ### Utility Functions
 
@@ -171,29 +190,29 @@ country_to_region(c("FRA", "DEU", "ITA"))  # All return "western_europe"
 
 ## Algorithm
 
-The model calculates separate 10-year risks for: 1. Myocardial infarction / CHD death 2. Stroke
+Risk is calculated separately for (a) myocardial infarction / CHD death and (b) stroke, in three steps, following Kaptoge et al. (2019) and the authors' Stata implementation:
 
-These are combined assuming independence:
+1.  **Uncalibrated risk** from the derivation (ERFC) Cox model:
 
-```         
-P(CVD) = 1 - (1 - P(MI)) × (1 - P(Stroke))
-```
+    ```
+    P = 1 - S₀^exp(LP)
+    ```
 
-Each endpoint risk is first calculated from the derivation (ERFC) Cox model, using the baseline survival of the derivation cohort:
+    where `S₀` is the 10-year baseline survival of the derivation cohort (specific to sex, endpoint and model) and `LP` is the linear predictor, including main effects and age interactions.
 
-```         
-P(event) = 1 - S₀^exp(LP)
-```
+2.  **Recalibration** on the complementary log-log scale:
 
-Where: - `S₀` = 10-year baseline survival of the derivation cohort (sex- and endpoint-specific) - `LP` = linear predictor including main effects and age interactions
+    ```
+    P_cal = 1 - exp(-exp(cons + slope × ln(-ln(1 - P))))
+    ```
 
-Each endpoint risk is then recalibrated on the complementary log-log scale:
+    The intercept `cons` and slope `slope` are specific to region (or country, with `recalibration = "country"`), sex, endpoint, model and year. The authors fitted them to GBD 2017 incidence rates and NCD-RisC risk factor levels; this package takes them from their Stata program (`net install whocvdrisk, from("https://raw.githubusercontent.com/skkceu/stata/main")`). See `data-raw/calibration_parameters.R` for how they are extracted.
 
-```         
-P_calibrated = 1 - exp(-exp(cons + slope × ln(-ln(1 - P))))
-```
+3.  **Combination**, assuming independence of the two endpoints:
 
-The intercepts (`cons`) and slopes (`slope`) are specific to region (or country), sex, endpoint and year. They were fitted by the model's authors to GBD 2017 incidence rates and NCD-RisC risk factor levels, and are taken from their Stata implementation (`net install whocvdrisk, from("https://raw.githubusercontent.com/skkceu/stata/main")`). See `data-raw/calibration_parameters.R` for how they are extracted.
+    ```
+    P(CVD) = 1 - (1 - P_cal(MI)) × (1 - P_cal(Stroke))
+    ```
 
 ## Cholesterol Unit Conversion
 
@@ -209,7 +228,7 @@ cholesterol_mmol <- cholesterol_mg_dl / 38.67
 
 2.  **Non-laboratory model:** Does not include diabetes, so may underestimate risk in diabetic patients.
 
-3.  **Calibration:** Based on GBD 2017 estimates; actual risk may vary within a country or population.
+3.  **Calibration:** Based on GBD 2017 estimates; actual risk may vary within a country or population. Because the models are recalibrated to contemporary populations, they may not be well suited to historically collected data (use `year` with care).
 
 4.  **Risk factors not included:** Family history, ethnicity, HDL cholesterol, triglycerides, etc.
 

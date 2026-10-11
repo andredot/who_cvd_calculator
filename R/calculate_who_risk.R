@@ -2,7 +2,9 @@
 #' @description
 #' Calculate 10-year cardiovascular disease (CVD) risk using the 2019 WHO
 #' risk prediction models. This package implements both laboratory-based and
-#' non-laboratory-based models, recalibrated for 21 global regions.
+#' non-laboratory-based models, recalibrated to 21 global regions (default,
+#' as in the published WHO risk charts) or, optionally, to individual
+#' countries.
 #'
 #' @references
 #' Kaptoge S, Pennells L, De Bacquer D, et al. World Health Organization
@@ -32,13 +34,13 @@
 #'   regions (see \code{\link{get_regions}} for valid values). If NULL and
 #'   \code{country} is provided, region will be determined automatically.
 #' @param country Character vector. ISO 3166-1 alpha-3 country code (e.g., "USA",
-#'   "GBR", "IND"). Used to determine region if \code{region} is NULL.
+#'   "GBR", "IND"). Used to determine region if \code{region} is NULL, and
+#'   required for \code{recalibration = "country"}.
 #'   See \code{\link{get_country_codes}} for valid values.
-#' @param recalibration Character. Level of recalibration: \code{"region"}
-#'   (default) uses the 21 GBD region parameters behind the published WHO risk
-#'   charts; \code{"country"} uses country-specific parameters and requires
-#'   \code{country}. Countries without country-specific estimates fall back to
-#'   their region with a warning.
+#' @param recalibration Character. Level of recalibration:
+#'   \code{"region"} (default) recalibrates to the WHO/GBD region, as in the
+#'   published WHO risk charts; \code{"country"} recalibrates to the individual
+#'   country and requires \code{country}. See the \emph{Recalibration} section.
 #' @param year Integer vector. Calendar year of the recalibration target
 #'   population (1990-2017, default 2017). Years up to 2015 use the 5-year
 #'   period they fall in (1990, 1995, ..., 2015).
@@ -69,6 +71,36 @@
 #' country), sex, endpoint and year. These parameters were fitted by the
 #' authors to GBD 2017 incidence rates and NCD-RisC risk factor levels and are
 #' taken from their Stata implementation (\code{whocvdrisk}).
+#'
+#' @section Recalibration:
+#' \strong{Region-level (default).} \code{recalibration = "region"} uses one
+#' set of parameters per WHO/GBD region, sex and year. This reproduces the
+#' published WHO risk charts (Kaptoge et al. 2019) and the default output of
+#' the authors' Stata program \code{whocvdrisk}. When only \code{country} is
+#' given, it is used solely to look up the region (see
+#' \code{\link{country_to_region}}); all countries in a region get the same
+#' risk.
+#'
+#' \strong{Country-level (optional).} \code{recalibration = "country"} uses
+#' parameters fitted to each country's own GBD 2017 incidence rates and
+#' NCD-RisC risk factor levels (the \code{cal1} parameters of
+#' \code{whocvdrisk}). It requires \code{country}. Use it when you need
+#' country-specific estimates rather than chart-equivalent ones; results can
+#' differ substantially from the region-level ones. For example, for a 45-year-old male
+#' smoker in the United Kingdom (SBP 140 mmHg, total cholesterol 5.5 mmol/L, no
+#' diabetes), the lab model gives about 7.0% with region-level and 9.4% with
+#' country-level recalibration.
+#'
+#' Country-specific estimates are not available for South Sudan (SSD), the US
+#' Virgin Islands (VIR), American Samoa (ASM), Guam (GUM) and the Northern
+#' Mariana Islands (MNP), nor for Greenland (GRL), Bermuda (BMU) and Puerto
+#' Rico (PRI) before 2015. For these, region-level parameters are used and a
+#' warning is issued.
+#'
+#' \strong{Year.} \code{year} selects the calendar year of the recalibration
+#' target population (default 2017, as in the charts). Parameters exist for
+#' 1990, 1995, 2000, 2005, 2010, 2015, 2016 and 2017; other years up to 2015
+#' use the 5-year period they fall in (e.g. 2003 uses 2000).
 #'
 #' @section Centering Values:
 #' Variables are centered at:
@@ -191,12 +223,13 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #' @param region Character vector. WHO/GBD region name. One of the 21 global
 #'   regions (see \code{\link{get_regions}} for valid values). If NULL and
 #'   \code{country} is provided, region will be determined automatically.
-#' @param country Character vector. ISO 3166-1 alpha-3 country code.
-#' @param recalibration Character. Level of recalibration: \code{"region"}
-#'   (default) uses the 21 GBD region parameters behind the published WHO risk
-#'   charts; \code{"country"} uses country-specific parameters and requires
-#'   \code{country}. Countries without country-specific estimates fall back to
-#'   their region with a warning.
+#' @param country Character vector. ISO 3166-1 alpha-3 country code. Used to
+#'   determine region if \code{region} is NULL, and required for
+#'   \code{recalibration = "country"}.
+#' @param recalibration Character. Level of recalibration:
+#'   \code{"region"} (default) recalibrates to the WHO/GBD region, as in the
+#'   published WHO risk charts; \code{"country"} recalibrates to the individual
+#'   country and requires \code{country}. See the \emph{Recalibration} section.
 #' @param year Integer vector. Calendar year of the recalibration target
 #'   population (1990-2017, default 2017). Years up to 2015 use the 5-year
 #'   period they fall in (1990, 1995, ..., 2015).
@@ -208,6 +241,11 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #' measurements (cholesterol, glucose) may not be readily available. It uses
 #' BMI as a proxy for metabolic risk.
 #'
+#' Risks for CHD/MI and stroke are computed from the derivation model,
+#' recalibrated on the complementary log-log scale with the authors'
+#' non-laboratory model parameters, and combined assuming independence (see
+#' \code{\link{calculate_who_risk}} for the formulas).
+#'
 #' \strong{Important limitations:}
 #' \itemize{
 #'   \item The non-laboratory model tends to underestimate risk in people with
@@ -215,6 +253,8 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #'   \item For individuals identified as high risk (>10%) by this model, laboratory-based
 #'         assessment is recommended.
 #' }
+#'
+#' @inheritSection calculate_who_risk Recalibration
 #'
 #' @section Centering Values:
 #' Variables are centered at:
@@ -243,6 +283,18 @@ calculate_who_risk <- function(age, sex, sbp, cholesterol, smoking, diabetes,
 #'   bmi = 26,
 #'   smoking = FALSE,
 #'   country = "KEN"
+#' )
+#'
+#' # Country-specific recalibration, for an earlier year
+#' calculate_who_risk_nonlab(
+#'   age = 60,
+#'   sex = "female",
+#'   sbp = 135,
+#'   bmi = 26,
+#'   smoking = FALSE,
+#'   country = "KEN",
+#'   recalibration = "country",
+#'   year = 2010
 #' )
 #'
 #' @seealso

@@ -8,7 +8,9 @@
 \description{
 Calculate 10-year cardiovascular disease (CVD) risk using the 2019 WHO
 risk prediction models. This package implements both laboratory-based and
-non-laboratory-based models, recalibrated for 21 global regions.
+non-laboratory-based models, recalibrated to 21 global regions (default,
+as in the published WHO risk charts) or, optionally, to individual
+countries.
 }
 \references{
 Kaptoge S, Pennells L, De Bacquer D, et al. World Health Organization
