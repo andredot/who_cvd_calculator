@@ -5,24 +5,13 @@
 * **Corrected recalibration.** Results change considerably from 1.0.0, and
   1.1.0 results should be used instead. Version 1.0.0 replaced the
   derivation baseline survival with a 10-year risk built from regional age-band
-  incidence rates. Because the linear predictor already includes age and age
-  interactions, this counted age twice: risk was underestimated at younger ages
-  and overestimated at older ages (e.g. UK male smoker, SBP 140 mmHg, total
-  cholesterol 5.5 mmol/L: about 1% at age 45 and 58% at age 75, against 7% and
-  29% now). Risks are now calculated as in the published method (Kaptoge et al.
+  incidence rates. Risks are now calculated as in the published method (Kaptoge
   2019) and the authors' Stata program `whocvdrisk`:
   1. uncalibrated risk from the derivation model, `1 - S0^exp(LP)`;
   2. recalibration on the complementary log-log scale,
      `1 - exp(-exp(cons + slope * log(-log(1 - risk))))`, using the authors'
      parameters for each region, sex, endpoint, model and year;
   3. combination of CHD/MI and stroke risks assuming independence.
-
-  Thanks to the user who reported the issue and pointed to the authors'
-  Stata implementation.
-* Baseline survival values now use the authors' full precision, with separate
-  values for the laboratory and non-laboratory models.
-* South Sudan (`SSD`) now maps to Eastern Sub-Saharan Africa (previously
-  North Africa and Middle East), matching the authors' GBD region assignment.
 
 ## New features
 
